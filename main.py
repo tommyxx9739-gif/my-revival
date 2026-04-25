@@ -1,32 +1,37 @@
 import http.server
 import socketserver
+import os
 
-# CONFIGURACIÓN
-PORT = 8080  # El puerto al que apuntarás en el APK
-GAME_PORT = 53640 # El puerto donde correrá el motor del juego
+# CONFIGURACIÓN DE RENDER
+# Render asigna un puerto dinámico, esta línea lo detecta automáticamente
+PORT = int(os.environ.get("PORT", 8080))
+GAME_PORT = 53640 
 
 class RevivalHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        # Esta ruta es la que suelen pedir los clientes antiguos para unirse
+        # Esta es la ruta que buscará el APK de Roblox
         if "/game/Join.ashx" in self.path:
             self.send_response(200)
             self.send_header("Content-type", "text/plain")
             self.end_headers()
             
-            # El "Ticket" de entrada que el APK lee
-            # Reemplaza 'TU_IP' por la IP de tu ZeroTier o localhost
+            # El script que el cliente ejecuta para unirse
+            # '127.0.0.1' funciona si el servidor corre en el mismo móvil
+            # Si corre en Render, aquí deberías poner la IP de quien hostea el mapa
             join_script = f"""
-            -- Script de unión básico
             local client = game:GetService("NetworkClient")
             client:Connect("127.0.0.1", {GAME_PORT}, 0, 20)
             """
             self.wfile.write(join_script.encode())
         else:
-            self.send_response(404)
+            # Respuesta básica para que Render sepa que el servidor está vivo
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
             self.end_headers()
+            self.wfile.write(b"Servidor de Revival Activo")
 
-print(f"Servidor de Revival activo en el puerto {PORT}")
-print("Esperando conexión del APK...")
+print(f"Servidor iniciado en el puerto {PORT}")
 
-with socketserver.TCPServer(("", PORT), RevivalHandler) as httpd:
+# El servidor se vincula a '0.0.0.0' para ser accesible desde internet
+with socketserver.TCPServer(("0.0.0.0", PORT), RevivalHandler) as httpd:
     httpd.serve_forever()
